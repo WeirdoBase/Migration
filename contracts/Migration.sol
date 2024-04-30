@@ -1,35 +1,4 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./_testContracts/IUniswapV2Router02.sol";
-
-/**
- * @dev Error used to indicate that a user attempting to migrate has no old Weirdo tokens.
- * This error is thrown in the migrate function if the user's balance of old Weirdo tokens is zero.
- */
-    error NoWeirdoToMigrate();
-
-/**
- * @dev Error used to indicate that an action is attempted while the migration is still open.
- * This error is thrown in functions that should only be executed when the migration has been closed,
- * such as extracting ETH from the liquidity pool or sending remaining Weirdo tokens to the treasury.
- */
-    error OnlyWhenMigrationClosed();
-
-/**
- * @dev Error used to indicate that an action is attempted after the migration has been closed.
- * This error is thrown in functions that require the migration to be open, such as migrating tokens.
- */
-    error OnlyWhenMigrationOpened();
-
-/**
- * @dev Error used to indicate that the required milestones for closing the migration have not been reached.
- * This could be due to not enough tokens being migrated or the specified time cap not being reached yet.
- * This error is thrown in the endMigration function if the conditions to end migration are not satisfied.
- */
-    error MilestonesNotReached();
-
 /*
 
                               _            _          _
@@ -65,6 +34,37 @@ import "./_testContracts/IUniswapV2Router02.sol";
           `,ix|:  ."}t\||||||||||||||||||||/tc``````'''..
 
 */
+
+pragma solidity ^0.8.25;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./_testContracts/IUniswapV2Router02.sol";
+
+/**
+ * @dev Error used to indicate that a user attempting to migrate has no old Weirdo tokens.
+ * This error is thrown in the migrate function if the user's balance of old Weirdo tokens is zero.
+ */
+    error NoWeirdoToMigrate();
+
+/**
+ * @dev Error used to indicate that an action is attempted while the migration is still open.
+ * This error is thrown in functions that should only be executed when the migration has been closed,
+ * such as extracting ETH from the liquidity pool or sending remaining Weirdo tokens to the treasury.
+ */
+    error OnlyWhenMigrationClosed();
+
+/**
+ * @dev Error used to indicate that an action is attempted after the migration has been closed.
+ * This error is thrown in functions that require the migration to be open, such as migrating tokens.
+ */
+    error OnlyWhenMigrationOpened();
+
+/**
+ * @dev Error used to indicate that the required milestones for closing the migration have not been reached.
+ * This could be due to not enough tokens being migrated or the specified time cap not being reached yet.
+ * This error is thrown in the endMigration function if the conditions to end migration are not satisfied.
+ */
+    error MilestonesNotReached();
 
 contract Migration is Ownable {
 
