@@ -56,6 +56,7 @@ contract Migration is Ownable {
     uint256 private _migrants;
     uint256 private _timeCap;
     uint256 private _migrateCap;
+    uint256 private _taxRate;
     bool private _migrationOpened;
 
 
@@ -63,6 +64,7 @@ contract Migration is Ownable {
         address oldWeirdo,
         address newWeirdo,
         uint256 inflation,
+        uint256 taxRate,
         uint256 timeCap,
         uint256 migrateCap,
         address treasury
@@ -76,6 +78,7 @@ contract Migration is Ownable {
         address oldWeirdo,
         address newWeirdo,
         uint256 inflation,
+        uint256 taxRate,
         uint256 minDays,
         uint256 migrateCap,
         address treasury,
@@ -86,12 +89,13 @@ contract Migration is Ownable {
         _inflation = inflation;
         _totalMigrated = 0;
         _migrants = 0;
+        _taxRate = taxRate;
         _timeCap = block.timestamp + (minDays * 1 days);
         _migrateCap = migrateCap * (IERC20(_oldWeirdo).totalSupply()/100);
         _migrationOpened = true;
         _treasury = treasury;
         _uniV2Router = uniV2Router;
-        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, _timeCap, _migrateCap, treasury);
+        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);
     }
 
 
@@ -156,6 +160,20 @@ contract Migration is Ownable {
 
         // Emit the event with the amount of ETH transferred
         emit ETHExtracted(ethCollected);
+    }
+
+    function lateMigrantDrop(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
+        if (_migrationOpened) {
+            revert OnlyWhenMigrationClosed();
+        }
+        uint256 length = recipients.length;
+        for (uint256 i = 0; i < length; i++) {
+            require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] - tax(amounts[i])), "Transfer failed: Check balance and allowance");
+        }
+    }
+
+    function tax(uint256 amount) public view returns(uint256) {
+        return (amount/1000) * _taxRate;
     }
 
     /**
