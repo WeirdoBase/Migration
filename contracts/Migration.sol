@@ -275,6 +275,94 @@ contract Migration is Ownable {
     }
 
     /**
+    * @dev Returns the address of the old Weirdo token contract.
+    * @return The address of the old Weirdo token.
+    */
+    function getOldWeirdo() external view returns (address) {
+        return _oldWeirdo;
+    }
+
+    /**
+    * @dev Returns the address of the new Weirdo token contract.
+    * @return The address of the new Weirdo token.
+    */
+    function getNewWeirdo() external view returns (address) {
+        return _newWeirdo;
+    }
+
+    /**
+    * @dev Returns the address of the treasury.
+    * @return The address of the treasury where funds and tokens are stored.
+    */
+    function getTreasury() external view returns (address) {
+        return _treasury;
+    }
+
+    /**
+    * @dev Returns the address of the Uniswap V2 router used for token swaps.
+    * @return The address of the Uniswap V2 router.
+    */
+    function getUniV2Router() external view returns (address) {
+        return _uniV2Router;
+    }
+
+    /**
+    * @dev Returns the inflation rate used for converting old tokens to new tokens.
+    * @return The inflation multiplier.
+    */
+    function getInflation() external view returns (uint256) {
+        return _inflation;
+    }
+
+    /**
+    * @dev Returns the total number of old tokens that have been migrated.
+    * @return The total amount of migrated old tokens.
+    */
+    function getTotalMigrated() external view returns (uint256) {
+        return _totalMigrated;
+    }
+
+    /**
+    * @dev Returns the number of addresses that have participated in the migration.
+    * @return The number of participants in the migration.
+    */
+    function getMigrants() external view returns (uint256) {
+        return _migrants;
+    }
+
+    /**
+    * @dev Returns the time cap of the migration, which is the timestamp after which migration can be halted by the owner.
+    * @return The timestamp indicating the end of the migration period.
+    */
+    function getTimeCap() external view returns (uint256) {
+        return _timeCap;
+    }
+
+    /**
+    * @dev Returns the migration cap, which is the minimum amount of old tokens that should be migrated.
+    * @return The migration cap.
+    */
+    function getMigrateCap() external view returns (uint256) {
+        return _migrateCap;
+    }
+
+    /**
+    * @dev Returns the tax rate applied to late migrations.
+    * @return The tax rate as a percentage, expressed in parts per thousand.
+    */
+    function getTaxRate() external view returns (uint256) {
+        return _taxRate;
+    }
+
+    /**
+    * @dev Checks whether the migration is currently open.
+    * @return True if the migration is open, false otherwise.
+    */
+    function isMigrationOpened() external view returns (bool) {
+        return _migrationOpened;
+    }
+
+    /**
      * @dev Used for swapping weirdo for ETH
      */
     function _swapWeirdoForEth(
