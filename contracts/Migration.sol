@@ -130,16 +130,32 @@ contract Migration is Ownable {
         emit MigrationClosed(_totalMigrated, _migrants, block.timestamp);
     }
 
+    /**
+    * @dev Swaps collected old Weirdo tokens for ETH and transfers the ETH to the treasury.
+    * Reverts if the migration is still open.
+    * Emits an ETHExtracted event upon completion.
+    */
     function extractEthFromLP() external onlyOwner {
-        // check if migration closed
+        // Ensure the migration is closed before allowing extraction
         if (_migrationOpened) {
             revert OnlyWhenMigrationClosed();
         }
-        // some people may have transferred tokens to migration contract
-        // therefore it makes more sense to use the balance than the total migrated
+
+        // Use the actual balance of the old tokens in this contract to handle any direct transfers
         uint256 weirdoCollected = IERC20(_oldWeirdo).balanceOf(address(this));
+
+        // Swap the old Weirdo tokens for ETH
         _swapWeirdoForEth(weirdoCollected);
-        emit ETHExtracted(address(this).balance);
+
+        // Retrieve the new balance of ETH in this contract post-swap
+        uint256 ethCollected = address(this).balance;
+
+        // Transfer the collected ETH to the treasury address
+        (bool success, ) = _treasury.call{value: ethCollected}("");
+        require(success, "Failed to send ETH to the treasury");
+
+        // Emit the event with the amount of ETH transferred
+        emit ETHExtracted(ethCollected);
     }
 
     /**
