@@ -20,7 +20,7 @@ This project uses [Hardhat](https://hardhat.org/) as its development environment
 1. Clone the repository:
    ```sh
    git clone https://github.com/WeirdoBase/Migration.git
-   cd weirdo-token-migration
+   cd Migration
    ```
 
 2. Install the necessary dependencies:
