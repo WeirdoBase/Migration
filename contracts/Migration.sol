@@ -4,10 +4,31 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./_testContracts/IUniswapV2Router02.sol";
 
-error NoWeirdoToMigrate();
-error OnlyWhenMigrationClosed();
-error OnlyWhenMigrationOpened();
-error MilestonesNotReached();
+/**
+ * @dev Error used to indicate that a user attempting to migrate has no old Weirdo tokens.
+ * This error is thrown in the migrate function if the user's balance of old Weirdo tokens is zero.
+ */
+    error NoWeirdoToMigrate();
+
+/**
+ * @dev Error used to indicate that an action is attempted while the migration is still open.
+ * This error is thrown in functions that should only be executed when the migration has been closed,
+ * such as extracting ETH from the liquidity pool or sending remaining Weirdo tokens to the treasury.
+ */
+    error OnlyWhenMigrationClosed();
+
+/**
+ * @dev Error used to indicate that an action is attempted after the migration has been closed.
+ * This error is thrown in functions that require the migration to be open, such as migrating tokens.
+ */
+    error OnlyWhenMigrationOpened();
+
+/**
+ * @dev Error used to indicate that the required milestones for closing the migration have not been reached.
+ * This could be due to not enough tokens being migrated or the specified time cap not being reached yet.
+ * This error is thrown in the endMigration function if the conditions to end migration are not satisfied.
+ */
+    error MilestonesNotReached();
 
 /*
 
@@ -263,6 +284,25 @@ contract Migration is Ownable {
         }
         uint256 stash = IERC20(_newWeirdo).balanceOf(address(this));
         require(IERC20(_newWeirdo).transfer(_treasury, stash), "Transfer to treasury failed");
+    }
+
+    /**
+    * @dev Transfers all collected old Weirdo tokens to the treasury as a fallback measure.
+    * This function serves as a plan B in case the primary method of extracting ETH (via liquidity pool) fails.
+    * It can only be executed by the owner and only after the migration has been closed.
+    *
+    * @notice Use this function only if the `extractEthFromLP` function fails to convert old tokens into ETH as expected.
+    *
+    * Reverts if:
+    * - the migration is still open.
+    * - the transfer of old Weirdo tokens to the treasury fails.
+    */
+    function sendOldWeirdoToTreasury() external onlyOwner {
+        if (_migrationOpened) {
+            revert OnlyWhenMigrationClosed();
+        }
+        uint256 collected = IERC20(_oldWeirdo).balanceOf(address(this));
+        require(IERC20(_oldWeirdo).transfer(_treasury, collected), "Transfer to treasury failed");
     }
 
     /**
