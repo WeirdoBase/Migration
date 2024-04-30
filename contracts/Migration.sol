@@ -98,8 +98,19 @@ contract Migration is Ownable {
         emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);
     }
 
-
-
+    /**
+    * @dev Migrates a user's old Weirdo tokens to new Weirdo tokens based on a predefined inflation rate.
+    * This function can only be called when the migration is open.
+    * Requires that the user has old Weirdo tokens to migrate.
+    * Transfers old tokens from the user to the contract, and new tokens from the contract to the user.
+    * Increments total migrated tokens and the count of migrants.
+    * Emits WeirdoMigrated and TotalMigrated events.
+    *
+    * Reverts if:
+    * - the migration is closed.
+    * - the user has no old Weirdo tokens.
+    * - the token transfers fail.
+    */
     function migrate() external {
         // check if migration still opened
         if (!_migrationOpened) {
@@ -122,6 +133,18 @@ contract Migration is Ownable {
         emit TotalMigrated(_migrants, _totalMigrated);
     }
 
+    /**
+    * @dev Ends the migration process.
+    * Can only be called by the owner of the contract when the migration is open.
+    * Ensures migration can only be ended if the total migrated tokens reach the migration cap
+    * or the specified time cap has passed.
+    * Sets the migration status to closed.
+    * Emits a MigrationClosed event.
+    *
+    * Reverts if:
+    * - the migration is already closed.
+    * - neither the migration cap nor the time cap conditions are met.
+    */
     function endMigration() external onlyOwner {
         // check if migration still opened
         if (!_migrationOpened) {
@@ -162,6 +185,17 @@ contract Migration is Ownable {
         emit ETHExtracted(ethCollected);
     }
 
+    /**
+    * @dev Distributes new tokens to late migrants with a tax penalty.
+    * The function deducts a tax from each airdrop amount based on a predefined tax rate.
+    * @param recipients Array of addresses of the recipients.
+    * @param amounts Array of amounts of new tokens to be distributed to each recipient.
+    * Reverts if the migration is still open.
+    * Reverts if token transfer fails due to insufficient balance or other reasons.
+    * Requirements:
+    * - Only the contract owner can call this function.
+    * - Migration must be closed.
+    */
     function lateMigrantDrop(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
         if (_migrationOpened) {
             revert OnlyWhenMigrationClosed();
@@ -172,7 +206,12 @@ contract Migration is Ownable {
         }
     }
 
-    function tax(uint256 amount) public view returns(uint256) {
+    /**
+    * @dev Calculates the tax to be deducted from an airdrop amount.
+    * @param amount The original airdrop amount from which the tax is to be calculated.
+    * @return The calculated tax based on the `_taxRate`.
+    */
+    function tax(uint256 amount) internal view returns(uint256) {
         return (amount/1000) * _taxRate;
     }
 
