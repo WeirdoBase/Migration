@@ -47,33 +47,72 @@ error MilestonesNotReached();
 
 contract Migration is Ownable {
 
-    address private _oldWeirdo;
-    address private _newWeirdo;
-    address private _treasury;
-    address private _uniV2Router;
-    uint256 private _inflation;
-    uint256 private _totalMigrated;
-    uint256 private _migrants;
-    uint256 private _timeCap;
-    uint256 private _migrateCap;
-    uint256 private _taxRate;
-    bool private _migrationOpened;
+    address private _oldWeirdo; // Address of the old Weirdo token contract.
+    address private _newWeirdo; // Address of the new Weirdo token contract.
+    address private _treasury; // Address of the treasury where funds and tokens are stored.
+    address private _uniV2Router; // Address of the Uniswap V2 router used for swapping tokens.
+    uint256 private _inflation; // Multiplier to calculate new token amount based on old tokens.
+    uint256 private _totalMigrated; // Total amount of old tokens that have been migrated.
+    uint256 private _migrants; // Number of addresses that have participated in the migration.
+    uint256 private _timeCap; // Timestamp after which migration can be closed by the owner.
+    uint256 private _migrateCap; // Amount of old tokens that have to be migrated to close migration.
+    uint256 private _taxRate; // Tax rate applied to the migration of late participants.
+    bool private _migrationOpened; // Flag to indicate whether migration is open or closed.
 
-
+    // Emitted when the migration process is initialized.
     event MigrationInitialized(
-        address oldWeirdo,
-        address newWeirdo,
-        uint256 inflation,
-        uint256 taxRate,
-        uint256 timeCap,
-        uint256 migrateCap,
-        address treasury
+        address oldWeirdo,     // Address of the old Weirdo token contract.
+        address newWeirdo,     // Address of the new Weirdo token contract.
+        uint256 inflation,     // Inflation rate applied to calculate new token amounts.
+        uint256 taxRate,       // Tax rate for calculating deductions on late migrations.
+        uint256 timeCap,       // Time limit until which migration can be closed.
+        uint256 migrateCap,    // Minimum amount of old tokens to migrate before closing migration.
+        address treasury       // Address of the treasury for storing extracted ETH and other funds.
     );
-    event WeirdoMigrated(address migrant, uint256 oldBalance, uint256 newBalance);
-    event TotalMigrated(uint256 migrants, uint256 totalMigrated);
-    event MigrationClosed(uint256 totalMigrated, uint256 migrants, uint256 timestamp);
-    event ETHExtracted(uint256 balanceETH);
 
+    // Emitted when a migrant successfully migrates their old tokens to new tokens.
+    event WeirdoMigrated(
+        address migrant,       // Address of the migrant.
+        uint256 oldBalance,    // Amount of old tokens migrated.
+        uint256 newBalance     // Amount of new tokens received post-migration.
+    );
+
+    // Emitted to report the overall progress of the migration.
+    event TotalMigrated(
+        uint256 migrants,      // Total number of participants in the migration.
+        uint256 totalMigrated  // Total amount of old tokens migrated.
+    );
+
+    // Emitted when the migration is officially closed.
+    event MigrationClosed(
+        uint256 totalMigrated, // Total amount of old tokens migrated by the closure.
+        uint256 migrants,      // Total number of migrants by the closure.
+        uint256 timestamp      // Timestamp when the migration was closed.
+    );
+
+    // Emitted after successfully extracting ETH from the old liquidity pool.
+    event ETHExtracted(
+        uint256 balanceETH     // Amount of ETH extracted and transferred to the treasury.
+    );
+
+
+    /**
+    * @dev Initializes the migration contract with the necessary parameters and sets the initial state.
+    * The constructor sets up the old and new Weirdo token addresses, the inflation rate for token conversion,
+    * the tax rate for late migrations, and other essential migration parameters.
+    * It also initializes the time and cap for the migration and sets the contract's ownership to the treasury.
+    *
+    * @param oldWeirdo Address of the old Weirdo token contract.
+    * @param newWeirdo Address of the new Weirdo token contract.
+    * @param inflation Multiplier used to convert old tokens to new tokens.
+    * @param taxRate The percentage (expressed as parts per thousand) that will be deducted as a tax from late migrations.
+    * @param minDays Minimum number of days the migration will be open.
+    * @param migrateCap Cap on the percentage of total old tokens that should be migrated, expressed as parts per hundred.
+    * @param treasury Address of the treasury to which leftover tokens and extracted ETH will be sent.
+    * @param uniV2Router Address of the Uniswap V2 router used for swapping tokens for ETH.
+    *
+    * Emits a MigrationInitialized event with initialization parameters.
+    */
     constructor (
         address oldWeirdo,
         address newWeirdo,
@@ -83,20 +122,21 @@ contract Migration is Ownable {
         uint256 migrateCap,
         address treasury,
         address uniV2Router
-    ) Ownable(treasury){
-        _oldWeirdo = oldWeirdo;
-        _newWeirdo = newWeirdo;
-        _inflation = inflation;
-        _totalMigrated = 0;
-        _migrants = 0;
-        _taxRate = taxRate;
-        _timeCap = block.timestamp + (minDays * 1 days);
-        _migrateCap = migrateCap * (IERC20(_oldWeirdo).totalSupply()/100);
-        _migrationOpened = true;
-        _treasury = treasury;
-        _uniV2Router = uniV2Router;
-        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);
+    ) Ownable(treasury) {
+        _oldWeirdo = oldWeirdo;  // Set the address of the old Weirdo token contract.
+        _newWeirdo = newWeirdo;  // Set the address of the new Weirdo token contract.
+        _inflation = inflation;  // Set the inflation rate for converting old to new tokens.
+        _totalMigrated = 0;      // Initialize the counter for total migrated tokens.
+        _migrants = 0;           // Initialize the counter for the number of migrants.
+        _taxRate = taxRate;      // Set the tax rate for calculating taxes on late migrations.
+        _timeCap = block.timestamp + (minDays * 1 days);  // Set the deadline for the migration based on the current time and minDays.
+        _migrateCap = migrateCap * (IERC20(_oldWeirdo).totalSupply() / 100);  // Calculate the cap for migrated tokens as a percentage of total supply.
+        _migrationOpened = true;  // Flag the migration as open.
+        _treasury = treasury;     // Set the treasury address.
+        _uniV2Router = uniV2Router;  // Set the Uniswap V2 router address.
+        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);  // Emit an event indicating that the migration has been initialized.
     }
+
 
     /**
     * @dev Migrates a user's old Weirdo tokens to new Weirdo tokens based on a predefined inflation rate.
@@ -204,6 +244,25 @@ contract Migration is Ownable {
         for (uint256 i = 0; i < length; i++) {
             require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] - tax(amounts[i])), "Transfer failed: Check balance and allowance");
         }
+    }
+
+    /**
+    * @dev Transfers all remaining new Weirdo tokens held by this contract to the treasury.
+    * This function can only be executed by the owner and only after the migration has been officially closed.
+    * It is intended to handle the final transfer of any leftover new Weirdo tokens to the treasury,
+    * which may include taxed tokens from late migrations or any tokens designated for community treasury allocation.
+    *
+    * Reverts if:
+    * - the migration is still open.
+    *
+    * Emits a Transfer event from the ERC20 token contract.
+    */
+    function sendWeirdoToTreasury() external onlyOwner {
+        if (_migrationOpened) {
+            revert OnlyWhenMigrationClosed();
+        }
+        uint256 stash = IERC20(_newWeirdo).balanceOf(address(this));
+        require(IERC20(_newWeirdo).transfer(_treasury, stash), "Transfer to treasury failed");
     }
 
     /**
