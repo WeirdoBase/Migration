@@ -229,7 +229,7 @@ contract Migration is Ownable {
         if (!_migrationOpened) {
             revert OnlyWhenMigrationOpened();
         }
-        if (_timeCap < block.timestamp) {
+        if (block.timestamp < _timeCap) {
             revert MilestonesNotReached();
         }
         _migrationOpened = false;
