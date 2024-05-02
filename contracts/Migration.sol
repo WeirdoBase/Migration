@@ -79,6 +79,7 @@ contract Migration is Ownable {
     uint256 private _migrateCap; // Amount of old tokens that have to be migrated to close migration.
     uint256 private _taxRate; // Tax rate applied to the migration of late participants.
     bool private _migrationOpened; // Flag to indicate whether migration is open or closed.
+    bool private _migrateCapReached;
 
     // Emitted when the migration process is initialized.
     event MigrationInitialized(
@@ -115,6 +116,8 @@ contract Migration is Ownable {
     event ETHExtracted(
         uint256 balanceETH     // Amount of ETH extracted and transferred to the treasury.
     );
+
+    event MigrateCapReached(uint256 startCountDown, uint256 endCountDown);
 
 
     /**
@@ -155,6 +158,7 @@ contract Migration is Ownable {
         _migrationOpened = true;  // Flag the migration as open.
         _treasury = treasury;     // Set the treasury address.
         _uniV2Router = uniV2Router;  // Set the Uniswap V2 router address.
+        _migrateCapReached = false; // migrateCap initialized as not reached
         emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);  // Emit an event indicating that the migration has been initialized.
     }
 
@@ -173,6 +177,14 @@ contract Migration is Ownable {
     * - the token transfers fail.
     */
     function migrate() external {
+        // close migration automatically if migrateCap is reached and 42 hours passed
+        if (_migrationOpened && _migrateCapReached) {
+            if (block.timestamp > _timeCap) {
+                _migrationOpened = false;
+                emit MigrationClosed(_totalMigrated, _migrants, block.timestamp);
+                return; // don't execute the rest of the migrate function when migration is closed
+            }
+        }
         // check if migration still opened
         if (!_migrationOpened) {
             revert OnlyWhenMigrationOpened();
@@ -187,6 +199,12 @@ contract Migration is Ownable {
         // incrementing migration counters
         _totalMigrated += oldBalance;
         _migrants++;
+        // if migrate cap is reached launch 42 hours countdown
+        if (_totalMigrated >= _migrateCap && !_migrateCapReached) {
+            _timeCap = block.timestamp + 42 hours;
+            _migrateCapReached = true; // set migrate cap reached to true
+            emit MigrateCapReached(block.timestamp, _timeCap);
+        }
         // atomic swap of old weirdo vs new weirdo
         require(IERC20(_oldWeirdo).transferFrom(msg.sender, address(this), oldBalance), "ERROR : cannot get old tokens");
         require(IERC20(_newWeirdo).transfer(msg.sender, newBalance), "ERROR : cannot send new tokens");
@@ -195,7 +213,7 @@ contract Migration is Ownable {
     }
 
     /**
-    * @dev Ends the migration process.
+    * @dev Ends the migration process manually.
     * Can only be called by the owner of the contract when the migration is open.
     * Ensures migration can only be ended if the total migrated tokens reach the migration cap
     * or the specified time cap has passed.
@@ -204,14 +222,14 @@ contract Migration is Ownable {
     *
     * Reverts if:
     * - the migration is already closed.
-    * - neither the migration cap nor the time cap conditions are met.
+    * - time conditions are not met.
     */
     function endMigration() external onlyOwner {
         // check if migration still opened
         if (!_migrationOpened) {
             revert OnlyWhenMigrationOpened();
         }
-        if (_totalMigrated < _migrateCap && _timeCap < block.timestamp) {
+        if (_timeCap < block.timestamp) {
             revert MilestonesNotReached();
         }
         _migrationOpened = false;
@@ -328,6 +346,14 @@ contract Migration is Ownable {
     */
     function getNewWeirdo() external view returns (address) {
         return _newWeirdo;
+    }
+
+    /**
+    * @dev Returns status on migration cap
+    * @return true if threshold of tokens has been migrated, false otherwise.
+    */
+    function isMigrateCapReached() external view returns (bool) {
+        return _migrateCapReached;
     }
 
     /**
