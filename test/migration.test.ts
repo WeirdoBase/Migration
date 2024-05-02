@@ -166,6 +166,40 @@ describe("Migration Contract Tests", function () {
         });
     });
 
+    describe("Extraction of remaining weirdo tokens post-migration closure", function() {
+        let thirtyDaysInSeconds = 30 * 24 * 60 * 60;
+
+        it("should NOT allow the treasury get tokens before end of migration", async function() {
+            await oldWeirdo.connect(weirdo1).approve(migrationAddress, 20000);
+            await migration.connect(weirdo1).migrate();
+            await expect(migration.connect(treasury).sendOldWeirdoToTreasury()).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationClosed');
+            await expect(migration.connect(treasury).sendWeirdoToTreasury()).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationClosed');
+        });
+        it("should allow the treasury get tokens when migration closes", async function() {
+            await oldWeirdo.connect(weirdo1).approve(migrationAddress, 20000);
+            await migration.connect(weirdo1).migrate();
+            expect(await oldWeirdo.balanceOf(migrationAddress)).to.be.greaterThan(0);
+            expect(await newWeirdo.balanceOf(migrationAddress)).to.be.greaterThan(0);
+            await ethers.provider.send("evm_increaseTime", [thirtyDaysInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+
+            const currentTime = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const migrationTimeCap = await migration.getTimeCap();
+            expect(currentTime).to.be.greaterThanOrEqual(migrationTimeCap);
+            await expect(migration.connect(treasury).endMigration())
+                .to.not.be.reverted;
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            await expect(migration.connect(deployer).sendOldWeirdoToTreasury()).to.be.reverted;
+            await expect(migration.connect(deployer).sendWeirdoToTreasury()).to.be.reverted;
+            await expect(migration.connect(treasury).sendOldWeirdoToTreasury()).to.not.be.reverted;
+            await expect(migration.connect(treasury).sendWeirdoToTreasury()).to.not.be.reverted;
+            expect(await oldWeirdo.balanceOf(treasury)).to.be.greaterThan(0);
+            expect(await newWeirdo.balanceOf(treasury)).to.be.greaterThan(0);
+            expect(await oldWeirdo.balanceOf(migrationAddress)).to.equal(0);
+            expect(await newWeirdo.balanceOf(migrationAddress)).to.equal(0);
+        });
+    });
+
     describe("Migration tests", function() {
     it("test basic migration", async function () {
         // weirdo1 gives allowance to the migration contract
@@ -179,6 +213,14 @@ describe("Migration Contract Tests", function () {
         expect(await migration.getMigrants()).to.equal(1);
         expect(await migration.isMigrationOpened()).to.equal(true);
     });
+        it("cannot call migration with empty wallet", async function () {
+            // weirdo1 gives allowance to the migration contract
+            await oldWeirdo.connect(weirdo1).approve(migrationAddress, 20000);
+            await migration.connect(weirdo1).migrate();
+            expect(await oldWeirdo.balanceOf(weirdo1)).to.equal(0);
+            expect(await newWeirdo.balanceOf(weirdo1)).to.equal(20000000);
+            await expect(migration.connect(weirdo1).migrate()).to.be.revertedWithCustomError(migration, 'NoWeirdoToMigrate');
+        });
     it("test migration passing the cap", async function () {
         // weirdo1 gives allowance to the migration contract
         await oldWeirdo.connect(weirdo1).approve(migrationAddress, 1000000);
@@ -224,8 +266,8 @@ describe("Migration Contract Tests", function () {
     });
     });
 
-    describe("Automatic Migration Closing Test", function() {
-        it("get to migration closure", async function () {
+    describe("Threshold-based Migration Closing Test", function() {
+        it("get to migration closure automatically", async function () {
             // weirdo1 gives allowance to the migration contract
             await oldWeirdo.connect(weirdo7).approve(migrationAddress, 1000000);
             await migration.connect(weirdo7).migrate();
@@ -254,10 +296,33 @@ describe("Migration Contract Tests", function () {
             // weirdo try migrating again and gets rejected
             await expect(migration.connect(weirdo2).migrate()).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationOpened');
         });
+        it("get to migration closure manually", async function () {
+            // weirdo1 gives allowance to the migration contract
+            await oldWeirdo.connect(weirdo7).approve(migrationAddress, 1000000);
+            await migration.connect(weirdo7).migrate();
+            expect(await migration.isMigrateCapReached()).to.equal(true);
+            const now: any = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const fortyTwoHoursInSeconds = 42 * 60 * 60;
+            const expectedTimeCap = now + fortyTwoHoursInSeconds;
+            const marginOfError = 600;  // 10 minutes in seconds
+            const actualTimeCap = await migration.getTimeCap();
+            expect(actualTimeCap).to.be.closeTo(expectedTimeCap, marginOfError);
+            expect(await migration.isMigrationOpened()).to.equal(true);
+            // can still migrate for 42 hours
+            await oldWeirdo.connect(weirdo1).approve(migrationAddress, 1000000);
+            await migration.connect(weirdo1).migrate();
+            // 42 hours passing
+            await ethers.provider.send("evm_increaseTime", [fortyTwoHoursInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+            // weirdo will close the migration
+            expect(await migration.isMigrationOpened()).to.equal(true);
+            await migration.connect(treasury).endMigration();
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            // weirdo cannot migrate
+            await oldWeirdo.connect(weirdo2).approve(migrationAddress, 1000000);
+            await expect(migration.connect(weirdo2).migrate()).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationOpened');
+        });
     });
-
-
-
 
 });
 

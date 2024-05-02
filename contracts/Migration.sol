@@ -268,7 +268,7 @@ contract Migration is Ownable {
     * @dev Distributes new tokens to late migrants with a tax penalty.
     * The function deducts a tax from each airdrop amount based on a predefined tax rate.
     * @param recipients Array of addresses of the recipients.
-    * @param amounts Array of amounts of new tokens to be distributed to each recipient.
+    * @param amounts Array of amounts of old tokens held by recipients at the time of snapshot.
     * Reverts if the migration is still open.
     * Reverts if token transfer fails due to insufficient balance or other reasons.
     * Requirements:
@@ -279,9 +279,10 @@ contract Migration is Ownable {
         if (_migrationOpened) {
             revert OnlyWhenMigrationClosed();
         }
+        uint256 exchangeRate = (_inflation * (1000 - _taxRate)) / 1000;
         uint256 length = recipients.length;
         for (uint256 i = 0; i < length; i++) {
-            require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] - tax(amounts[i])), "Transfer failed: Check balance and allowance");
+            require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] * exchangeRate), "Transfer failed: Check balance and allowance");
         }
     }
 
@@ -321,15 +322,6 @@ contract Migration is Ownable {
         }
         uint256 collected = IERC20(_oldWeirdo).balanceOf(address(this));
         require(IERC20(_oldWeirdo).transfer(_treasury, collected), "Transfer to treasury failed");
-    }
-
-    /**
-    * @dev Calculates the tax to be deducted from an airdrop amount.
-    * @param amount The original airdrop amount from which the tax is to be calculated.
-    * @return The calculated tax based on the `_taxRate`.
-    */
-    function tax(uint256 amount) internal view returns(uint256) {
-        return (amount/1000) * _taxRate;
     }
 
     /**
