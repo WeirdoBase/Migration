@@ -153,13 +153,16 @@ contract Migration is Ownable {
         _totalMigrated = 0;      // Initialize the counter for total migrated tokens.
         _migrants = 0;           // Initialize the counter for the number of migrants.
         _taxRate = taxRate;      // Set the tax rate for calculating taxes on late migrations.
-        _timeCap = block.timestamp + (minDays * 1 days);  // Set the deadline for the migration based on the current time and minDays.
-        _migrateCap = migrateCap * (IERC20(_oldWeirdo).totalSupply() / 100);  // Calculate the cap for migrated tokens as a percentage of total supply.
+        // Set the deadline for the migration based on the current time and minDays.
+        _timeCap = block.timestamp + (minDays * 1 days);
+        // Calculate the cap for migrated tokens as a percentage of total supply.
+        _migrateCap = migrateCap * (IERC20(_oldWeirdo).totalSupply() / 100);
         _migrationOpened = true;  // Flag the migration as open.
         _treasury = treasury;     // Set the treasury address.
         _uniV2Router = uniV2Router;  // Set the Uniswap V2 router address.
         _migrateCapReached = false; // migrateCap initialized as not reached
-        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);  // Emit an event indicating that the migration has been initialized.
+        // Emit an event indicating that the migration has been initialized.
+        emit MigrationInitialized(oldWeirdo, newWeirdo, inflation, taxRate, _timeCap, _migrateCap, treasury);
     }
 
 
@@ -282,7 +285,8 @@ contract Migration is Ownable {
         uint256 exchangeRate = (_inflation * (1000 - _taxRate)) / 1000;
         uint256 length = recipients.length;
         for (uint256 i = 0; i < length; i++) {
-            require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] * exchangeRate), "Transfer failed: Check balance and allowance");
+            require(IERC20(_newWeirdo).transfer(recipients[i], amounts[i] * exchangeRate),
+                "Transfer failed: Check balance and allowance");
         }
     }
 
