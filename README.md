@@ -13,7 +13,7 @@ This repository contains the smart contract for the migration of Weirdo tokens f
 This project uses [Hardhat](https://hardhat.org/) as its development environment for compiling, deploying, and testing Ethereum software.
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) v12 or later
+- [Node.js](https://nodejs.org/) v20
 - npm (typically installed with Node.js)
 
 ### Installation
