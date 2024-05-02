@@ -44,17 +44,11 @@ Here are some additional Hardhat commands that might be useful:
   ```
   This command compiles the smart contracts and checks for any compilation errors.
 
-- **Deploy Contracts:**
+- **Test Coverage:**
   ```sh
-  npx hardhat run scripts/deploy.js
+  npx hardhat coverage
   ```
-  Use this command to deploy contracts to a specified network. Make sure to configure your network settings in `hardhat.config.js`.
-
-- **Local Network:**
-  ```sh
-  npx hardhat node
-  ```
-  Runs a local Ethereum network that you can use for testing and development.
+  Use this command to check the coverage of testing on the project.
 
 ## Contract Details
 ### Key Functions
