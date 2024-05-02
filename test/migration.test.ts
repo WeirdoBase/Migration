@@ -324,5 +324,73 @@ describe("Migration Contract Tests", function () {
         });
     });
 
+    describe("Airdrop late holders post migration contract closure", function() {
+        let thirtyDaysInSeconds = 30 * 24 * 60 * 60;
+
+        it("should NOT allow the airdrop before end of migration", async function() {
+            await expect(migration.connect(treasury).lateMigrantDrop([weirdo1,weirdo2, weirdo3],[1000,10000,100000])).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationClosed');
+        });
+        it("should NOT allow the airdrop if called by non Owner", async function() {
+            await ethers.provider.send("evm_increaseTime", [thirtyDaysInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+
+            const currentTime = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const migrationTimeCap = await migration.getTimeCap();
+            expect(currentTime).to.be.greaterThanOrEqual(migrationTimeCap);
+            await expect(migration.connect(treasury).endMigration())
+                .to.not.be.reverted;
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            await expect(migration.connect(treasury).endMigration())
+                .to.be.reverted;
+            await expect(migration.connect(deployer).lateMigrantDrop([weirdo1,weirdo2, weirdo3],[1000,10000,100000])).to.be.reverted;
+        });
+        it("should allow the airdrop if called by Owner", async function() {
+            await ethers.provider.send("evm_increaseTime", [thirtyDaysInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+
+            const currentTime = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const migrationTimeCap = await migration.getTimeCap();
+            expect(currentTime).to.be.greaterThanOrEqual(migrationTimeCap);
+            await expect(migration.connect(treasury).endMigration())
+                .to.not.be.reverted;
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            await expect(migration.connect(treasury).lateMigrantDrop([weirdo1,weirdo2, weirdo3],[1000,10000,100000])).to.not.be.reverted;
+            expect(await newWeirdo.balanceOf(weirdo1)).to.equal(958000);
+            expect(await newWeirdo.balanceOf(weirdo2)).to.equal(9580000);
+            expect(await newWeirdo.balanceOf(weirdo3)).to.equal(95800000);
+        });
+    });
+    describe("Extraction of ETH on old LP", function() {
+        let thirtyDaysInSeconds = 30 * 24 * 60 * 60;
+
+        it("should NOT be allowed before end of migration", async function() {
+            await expect(migration.connect(treasury).extractEthFromLP()).to.be.revertedWithCustomError(migration, 'OnlyWhenMigrationClosed');
+        });
+        it("should NOT allow if called by non Owner", async function() {
+            await ethers.provider.send("evm_increaseTime", [thirtyDaysInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+
+            const currentTime = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const migrationTimeCap = await migration.getTimeCap();
+            expect(currentTime).to.be.greaterThanOrEqual(migrationTimeCap);
+            await expect(migration.connect(treasury).endMigration())
+                .to.not.be.reverted;
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            await expect(migration.connect(deployer).extractEthFromLP()).to.be.reverted;
+        });
+        it("should allow if called by Owner and migration is closed", async function() {
+            await ethers.provider.send("evm_increaseTime", [thirtyDaysInSeconds]);
+            await ethers.provider.send("evm_mine", []);
+
+            const currentTime = (await ethers.provider.getBlock('latest'))?.timestamp;
+            const migrationTimeCap = await migration.getTimeCap();
+            expect(currentTime).to.be.greaterThanOrEqual(migrationTimeCap);
+            await expect(migration.connect(treasury).endMigration())
+                .to.not.be.reverted;
+            expect(await migration.isMigrationOpened()).to.equal(false);
+            // to be called when we have connected the uniswap suite to our test env
+            // await expect(migration.connect(treasury).extractEthFromLP()).to.not.be.reverted;
+        });
+    });
 });
 
