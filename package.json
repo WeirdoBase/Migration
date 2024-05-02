@@ -34,7 +34,8 @@
     "solhint-plugin-prettier": "^0.1.0",
     "eth-gas-reporter": "^0.2.27",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@xyrusworx/hardhat-solidity-json": "^1.0.2"
+    "@xyrusworx/hardhat-solidity-json": "^1.0.2",
+    "ethers": "^6.12.1"
   },
   "lint-staged": {
     "*.js": [
