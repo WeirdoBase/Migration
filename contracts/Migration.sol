@@ -66,6 +66,13 @@ import "./_testContracts/IUniswapV2Router02.sol";
  */
     error MilestonesNotReached();
 
+    /**
+    * @dev This error is triggered when the array of recipients for airdrop is too big
+    * an array of >300 recipients could cause the transaction to be too costly in gas and
+    * get reverted because it is out of gas
+    */
+    error TooManyRecipients();
+
 contract Migration is Ownable {
 
     address private _oldWeirdo; // Address of the old Weirdo token contract.
@@ -129,7 +136,9 @@ contract Migration is Ownable {
     * @param oldWeirdo Address of the old Weirdo token contract.
     * @param newWeirdo Address of the new Weirdo token contract.
     * @param inflation Multiplier used to convert old tokens to new tokens.
+    * inflation has to be >= 1000 to avoid approximate issues on the rounding of exchange rate for late migrants
     * @param taxRate The percentage (expressed as parts per thousand) that will be deducted as a tax from late migrations.
+    * taxRate has to be less than 100 (10%)
     * @param minDays Minimum number of days the migration will be open.
     * @param migrateCap Cap on the percentage of total old tokens that should be migrated, expressed as parts per hundred.
     * @param treasury Address of the treasury to which leftover tokens and extracted ETH will be sent.
@@ -147,6 +156,11 @@ contract Migration is Ownable {
         address treasury,
         address uniV2Router
     ) Ownable(treasury) {
+        require(oldWeirdo != address(0), "oldWeirdo cannot be zero address");
+        require(newWeirdo != address(0), "newWeirdo cannot be zero address");
+        require(treasury != address(0), "treasury cannot be zero address");
+        require(taxRate <= 100, "taxRate too high");
+        require(inflation >= 1000, "inflation too low, may create approximate issues with tax");
         _oldWeirdo = oldWeirdo;  // Set the address of the old Weirdo token contract.
         _newWeirdo = newWeirdo;  // Set the address of the new Weirdo token contract.
         _inflation = inflation;  // Set the inflation rate for converting old to new tokens.
@@ -270,15 +284,20 @@ contract Migration is Ownable {
     /**
     * @dev Distributes new tokens to late migrants with a tax penalty.
     * The function deducts a tax from each airdrop amount based on a predefined tax rate.
+    * final exchange rate is rounded down, calculation is done by applying _taxRate to _inflation
     * @param recipients Array of addresses of the recipients.
     * @param amounts Array of amounts of old tokens held by recipients at the time of snapshot.
     * Reverts if the migration is still open.
     * Reverts if token transfer fails due to insufficient balance or other reasons.
     * Requirements:
     * - Only the contract owner can call this function.
+    * - Array of recipients cannot be >300 in length to avoid out of gas
     * - Migration must be closed.
     */
     function lateMigrantDrop(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
+        if (recipients.length > 300) {
+            revert TooManyRecipients();
+        }
         if (_migrationOpened) {
             revert OnlyWhenMigrationClosed();
         }
