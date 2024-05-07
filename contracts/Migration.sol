@@ -40,30 +40,30 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./_testContracts/IUniswapV2Router02.sol";
 
-/**
- * @dev Error used to indicate that a user attempting to migrate has no old Weirdo tokens.
- * This error is thrown in the migrate function if the user's balance of old Weirdo tokens is zero.
- */
+    /**
+    * @dev Error used to indicate that a user attempting to migrate has no old Weirdo tokens.
+    * This error is thrown in the migrate function if the user's balance of old Weirdo tokens is zero.
+    */
     error NoWeirdoToMigrate();
 
-/**
- * @dev Error used to indicate that an action is attempted while the migration is still open.
- * This error is thrown in functions that should only be executed when the migration has been closed,
- * such as extracting ETH from the liquidity pool or sending remaining Weirdo tokens to the treasury.
- */
+    /**
+    * @dev Error used to indicate that an action is attempted while the migration is still open.
+    * This error is thrown in functions that should only be executed when the migration has been closed,
+    * such as extracting ETH from the liquidity pool or sending remaining Weirdo tokens to the treasury.
+    */
     error OnlyWhenMigrationClosed();
 
-/**
- * @dev Error used to indicate that an action is attempted after the migration has been closed.
- * This error is thrown in functions that require the migration to be open, such as migrating tokens.
- */
+    /**
+    * @dev Error used to indicate that an action is attempted after the migration has been closed.
+    * This error is thrown in functions that require the migration to be open, such as migrating tokens.
+    */
     error OnlyWhenMigrationOpened();
 
-/**
- * @dev Error used to indicate that the required milestones for closing the migration have not been reached.
- * This could be due to not enough tokens being migrated or the specified time cap not being reached yet.
- * This error is thrown in the endMigration function if the conditions to end migration are not satisfied.
- */
+    /**
+    * @dev Error used to indicate that the required milestones for closing the migration have not been reached.
+    * This could be due to not enough tokens being migrated or the specified time cap not being reached yet.
+    * This error is thrown in the endMigration function if the conditions to end migration are not satisfied.
+    */
     error MilestonesNotReached();
 
     /**
@@ -120,9 +120,7 @@ contract Migration is Ownable {
     );
 
     // Emitted after successfully extracting ETH from the old liquidity pool.
-    event ETHExtracted(
-        uint256 balanceETH     // Amount of ETH extracted and transferred to the treasury.
-    );
+    event ETHExtracted();
 
     event MigrateCapReached(uint256 startCountDown, uint256 endCountDown);
 
@@ -270,15 +268,8 @@ contract Migration is Ownable {
         // Swap the old Weirdo tokens for ETH
         _swapWeirdoForEth(weirdoCollected);
 
-        // Retrieve the new balance of ETH in this contract post-swap
-        uint256 ethCollected = address(this).balance;
-
-        // Transfer the collected ETH to the treasury address
-        (bool success, ) = _treasury.call{value: ethCollected}("");
-        require(success, "Failed to send ETH to the treasury");
-
-        // Emit the event with the amount of ETH transferred
-        emit ETHExtracted(ethCollected);
+        // Emit event to notify extraction worked
+        emit ETHExtracted();
     }
 
     /**
@@ -458,7 +449,7 @@ contract Migration is Ownable {
             tokenAmount,
             0, // accept any amount of ETH
             path,
-            address(this),
+            _treasury,
             block.timestamp
         );
     }
